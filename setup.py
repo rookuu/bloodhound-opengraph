@@ -13,7 +13,7 @@ with open(os.path.join(this_directory, "README.md"), encoding="utf-8") as f:
 # Read the version from the package
 def get_version():
     """Get version from package __init__.py"""
-    init_file = os.path.join(this_directory, "bloodhound_opengraph", "__init__.py")
+    init_file = os.path.join(this_directory, "opengraph", "__init__.py")
     with open(init_file, encoding="utf-8") as f:
         for line in f:
             if line.startswith("__version__"):
