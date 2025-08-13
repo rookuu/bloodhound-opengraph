@@ -32,40 +32,19 @@ class TestNodeReference:
         assert ref.match_by == MatchBy.ID
         assert ref.kind == "User"
 
-    def test_node_reference_to_dict_minimal(self):
-        """Test converting minimal NodeReference to dictionary."""
-        ref = NodeReference(value="test123")
-        result = ref.to_dict()
+    def test_node_reference_to_dict_comprehensive(self):
+        """Test converting NodeReference to dictionary in various scenarios."""
+        # Minimal reference (ID match, no kind)
+        ref_minimal = NodeReference(value="test123")
+        assert ref_minimal.to_dict() == {"value": "test123", "match_by": "id"}
         
-        expected = {
-            "value": "test123",
-            "match_by": "id"
-        }
-        assert result == expected
-
-    def test_node_reference_to_dict_with_kind(self):
-        """Test converting NodeReference with kind to dictionary."""
-        ref = NodeReference(value="test123", kind="User")
-        result = ref.to_dict()
+        # Reference with kind filter
+        ref_with_kind = NodeReference(value="test123", kind="User")
+        assert ref_with_kind.to_dict() == {"value": "test123", "match_by": "id", "kind": "User"}
         
-        expected = {
-            "value": "test123",
-            "match_by": "id",
-            "kind": "User"
-        }
-        assert result == expected
-
-    def test_node_reference_to_dict_name_match(self):
-        """Test converting NodeReference with name matching to dictionary."""
-        ref = NodeReference(value="testuser", match_by=MatchBy.NAME, kind="Person")
-        result = ref.to_dict()
-        
-        expected = {
-            "value": "testuser",
-            "match_by": "name",
-            "kind": "Person"
-        }
-        assert result == expected
+        # Reference with name matching and kind
+        ref_name_match = NodeReference(value="testuser", match_by=MatchBy.NAME, kind="Person")
+        assert ref_name_match.to_dict() == {"value": "testuser", "match_by": "name", "kind": "Person"}
 
 
 class TestEdge:
@@ -104,136 +83,63 @@ class TestEdge:
         with pytest.raises(ValueError, match="Edge must have a kind"):
             Edge(start=start_ref, end=end_ref, kind="")
 
-    def test_edge_property_validation_primitive_types(self):
-        """Test that primitive property types are accepted."""
+    def test_edge_property_validation_comprehensive(self):
+        """Test edge property validation (primitive types, arrays, and rejections)."""
         start_ref = NodeReference(value="start123")
         end_ref = NodeReference(value="end456")
-        properties = {
+        
+        # Test valid primitive and array properties
+        valid_properties = {
             "string_prop": "test",
             "int_prop": 42,
             "float_prop": 3.14,
-            "bool_prop": True
-        }
-        
-        edge = Edge(start=start_ref, end=end_ref, kind="ConnectedTo", properties=properties)
-        assert edge.properties == properties
-
-    def test_edge_property_validation_arrays(self):
-        """Test that valid array properties are accepted."""
-        start_ref = NodeReference(value="start123")
-        end_ref = NodeReference(value="end456")
-        properties = {
+            "bool_prop": True,
             "string_array": ["item1", "item2"],
             "int_array": [1, 2, 3],
             "empty_array": []
         }
-        
-        edge = Edge(start=start_ref, end=end_ref, kind="ConnectedTo", properties=properties)
-        assert edge.properties == properties
+        edge = Edge(start=start_ref, end=end_ref, kind="ConnectedTo", properties=valid_properties)
+        assert edge.properties == valid_properties
 
-    def test_edge_property_validation_reject_objects(self):
-        """Test that object properties are rejected."""
-        start_ref = NodeReference(value="start123")
-        end_ref = NodeReference(value="end456")
-        
+        # Test rejection of objects
         with pytest.raises(ValueError, match="cannot be an object"):
-            Edge(
-                start=start_ref,
-                end=end_ref,
-                kind="ConnectedTo",
-                properties={"nested": {"key": "value"}}
-            )
+            Edge(start=start_ref, end=end_ref, kind="ConnectedTo",
+                 properties={"nested": {"key": "value"}})
 
-    def test_edge_property_validation_reject_mixed_arrays(self):
-        """Test that mixed-type arrays are rejected."""
-        start_ref = NodeReference(value="start123")
-        end_ref = NodeReference(value="end456")
-        
+        # Test rejection of mixed arrays
         with pytest.raises(ValueError, match="array must be homogeneous"):
-            Edge(
-                start=start_ref,
-                end=end_ref,
-                kind="ConnectedTo",
-                properties={"mixed": [1, "string", True]}
-            )
+            Edge(start=start_ref, end=end_ref, kind="ConnectedTo",
+                 properties={"mixed": [1, "string", True]})
 
-    def test_edge_property_validation_reject_object_arrays(self):
-        """Test that arrays containing objects are rejected."""
-        start_ref = NodeReference(value="start123")
-        end_ref = NodeReference(value="end456")
-        
+        # Test rejection of object arrays
         with pytest.raises(ValueError, match="array cannot contain objects"):
-            Edge(
-                start=start_ref,
-                end=end_ref,
-                kind="ConnectedTo",
-                properties={"objects": [{"key": "value"}]}
-            )
+            Edge(start=start_ref, end=end_ref, kind="ConnectedTo",
+                 properties={"objects": [{"key": "value"}]})
 
-    def test_edge_to_dict_minimal(self):
-        """Test converting a minimal edge to dictionary."""
+    def test_edge_to_dict_comprehensive(self):
+        """Test converting edges to dictionary in various scenarios."""
         start_ref = NodeReference(value="start123")
         end_ref = NodeReference(value="end456")
-        edge = Edge(start=start_ref, end=end_ref, kind="ConnectedTo")
         
-        result = edge.to_dict()
-        
-        expected = {
-            "start": {
-                "value": "start123",
-                "match_by": "id"
-            },
-            "end": {
-                "value": "end456",
-                "match_by": "id"
-            },
+        # Test minimal edge
+        edge_minimal = Edge(start=start_ref, end=end_ref, kind="ConnectedTo")
+        expected_minimal = {
+            "start": {"value": "start123", "match_by": "id"},
+            "end": {"value": "end456", "match_by": "id"},
             "kind": "ConnectedTo"
         }
-        assert result == expected
+        assert edge_minimal.to_dict() == expected_minimal
 
-    def test_edge_to_dict_with_properties(self):
-        """Test converting an edge with properties to dictionary."""
-        start_ref = NodeReference(value="start123")
-        end_ref = NodeReference(value="end456")
+        # Test edge with properties
         properties = {"weight": 1.5}
-        edge = Edge(start=start_ref, end=end_ref, kind="ConnectedTo", properties=properties)
-        
-        result = edge.to_dict()
-        
-        expected = {
-            "start": {
-                "value": "start123",
-                "match_by": "id"
-            },
-            "end": {
-                "value": "end456",
-                "match_by": "id"
-            },
-            "kind": "ConnectedTo",
-            "properties": {"weight": 1.5}
-        }
-        assert result == expected
+        edge_with_props = Edge(start=start_ref, end=end_ref, kind="ConnectedTo", properties=properties)
+        expected_with_props = expected_minimal.copy()
+        expected_with_props["properties"] = {"weight": 1.5}
+        assert edge_with_props.to_dict() == expected_with_props
 
-    def test_edge_to_dict_with_none_properties(self):
-        """Test that None properties are excluded from dict."""
-        start_ref = NodeReference(value="start123")
-        end_ref = NodeReference(value="end456")
-        edge = Edge(start=start_ref, end=end_ref, kind="ConnectedTo", properties=None)
-        
-        result = edge.to_dict()
-        
-        expected = {
-            "start": {
-                "value": "start123",
-                "match_by": "id"
-            },
-            "end": {
-                "value": "end456",
-                "match_by": "id"
-            },
-            "kind": "ConnectedTo"
-        }
-        assert result == expected
+        # Test that None properties are excluded
+        edge_none_props = Edge(start=start_ref, end=end_ref, kind="ConnectedTo", properties=None)
+        assert edge_none_props.to_dict() == expected_minimal
 
     def test_edge_with_complex_references(self):
         """Test edge with complex node references."""

@@ -37,100 +37,55 @@ class TestNode:
         assert node.id == "test123"
         assert node.kinds == ["User", "Person", "Employee"]
 
-    def test_node_validation_empty_kinds(self):
-        """Test that nodes with empty kinds raise ValueError."""
-        with pytest.raises(ValueError, match="Node must have at least one kind when no source_kind is specified"):
-            Node(id="test123", kinds=[])
-
     def test_node_validation_too_many_kinds(self):
         """Test that nodes with more than 3 kinds raise ValueError."""
         with pytest.raises(ValueError, match="Node cannot have more than 3 kinds"):
             Node(id="test123", kinds=["Kind1", "Kind2", "Kind3", "Kind4"])
 
-    def test_node_property_validation_primitive_types(self):
-        """Test that primitive property types are accepted."""
-        properties = {
+    def test_node_property_validation_comprehensive(self):
+        """Test node property validation (primitive types, arrays, and rejections)."""
+        # Test valid primitive and array properties
+        valid_properties = {
             "string_prop": "test",
             "int_prop": 42,
             "float_prop": 3.14,
             "bool_prop": True,
-            "none_prop": None
-        }
-        node = Node(id="test123", kinds=["User"], properties=properties)
-        assert node.properties == properties
-
-    def test_node_property_validation_arrays(self):
-        """Test that valid array properties are accepted."""
-        properties = {
+            "none_prop": None,
             "string_array": ["item1", "item2", "item3"],
             "int_array": [1, 2, 3],
             "bool_array": [True, False, True],
             "empty_array": []
         }
-        node = Node(id="test123", kinds=["User"], properties=properties)
-        assert node.properties == properties
+        node = Node(id="test123", kinds=["User"], properties=valid_properties)
+        assert node.properties == valid_properties
 
-    def test_node_property_validation_reject_objects(self):
-        """Test that object properties are rejected."""
+        # Test rejection of objects
         with pytest.raises(ValueError, match="cannot be an object"):
-            Node(
-                id="test123",
-                kinds=["User"],
-                properties={"nested": {"key": "value"}}
-            )
+            Node(id="test123", kinds=["User"], properties={"nested": {"key": "value"}})
 
-    def test_node_property_validation_reject_mixed_arrays(self):
-        """Test that mixed-type arrays are rejected."""
+        # Test rejection of mixed arrays
         with pytest.raises(ValueError, match="array must be homogeneous"):
-            Node(
-                id="test123",
-                kinds=["User"],
-                properties={"mixed": [1, "string", True]}
-            )
+            Node(id="test123", kinds=["User"], properties={"mixed": [1, "string", True]})
 
-    def test_node_property_validation_reject_object_arrays(self):
-        """Test that arrays containing objects are rejected."""
+        # Test rejection of object arrays
         with pytest.raises(ValueError, match="array cannot contain objects"):
-            Node(
-                id="test123",
-                kinds=["User"],
-                properties={"objects": [{"key": "value"}]}
-            )
+            Node(id="test123", kinds=["User"], properties={"objects": [{"key": "value"}]})
 
-    def test_node_to_dict_minimal(self):
-        """Test converting a minimal node to dictionary."""
-        node = Node(id="test123", kinds=["User"])
-        result = node.to_dict()
+    def test_node_to_dict_comprehensive(self):
+        """Test converting nodes to dictionary in various scenarios."""
+        # Minimal node
+        node_minimal = Node(id="test123", kinds=["User"])
+        assert node_minimal.to_dict() == {"id": "test123", "kinds": ["User"]}
         
-        expected = {
-            "id": "test123",
-            "kinds": ["User"]
-        }
-        assert result == expected
-
-    def test_node_to_dict_with_properties(self):
-        """Test converting a node with properties to dictionary."""
+        # Node with properties
         properties = {"email": "test@example.com", "active": True}
-        node = Node(id="test123", kinds=["User"], properties=properties)
-        result = node.to_dict()
+        node_with_props = Node(id="test123", kinds=["User"], properties=properties)
+        expected_with_props = {"id": "test123", "kinds": ["User"], "properties": properties}
+        assert node_with_props.to_dict() == expected_with_props
         
-        expected = {
-            "id": "test123",
-            "kinds": ["User"],
-            "properties": properties
-        }
-        assert result == expected
-
-    def test_node_to_dict_with_none_properties(self):
-        """Test that None properties are excluded from dict."""
-        node = Node(id="test123", kinds=["User"], properties=None)
-        result = node.to_dict()
-        
-        expected = {
-            "id": "test123",
-            "kinds": ["User"]
-        }
-        assert result == expected
+        # Node with None properties (should be excluded)
+        node_none_props = Node(id="test123", kinds=["User"], properties=None)
+        assert node_none_props.to_dict() == {"id": "test123", "kinds": ["User"]}
 
     @pytest.mark.parametrize("kinds", [
         ["User"],

@@ -64,7 +64,6 @@ class Node:
     
     def _validate_kinds(self):
         """Validate that kinds are appropriate for the context."""
-        print("Validating kinds for node:", self.id, "with source_kind_available =", self.source_kind_available)
         if not self.kinds and not self.source_kind_available:
             raise ValueError("Node must have at least one kind when no source_kind is specified")
     
@@ -196,29 +195,37 @@ class OpenGraphBuilder:
         self.metadata = OpenGraphMetadata(source_kind=source_kind) if source_kind else None
         self._node_ids: set = set()  # Track node IDs to prevent duplicates
     
-    def add_node(self, node: Node) -> 'OpenGraphBuilder':
+    def add_node(self, node: Node, merge_properties: bool = True) -> Node:
         """
         Add a node to the graph.
         
         Args:
             node: The node to add
+            merge_properties: If True, merge properties with existing node if ID exists.
+                            If False, raise ValueError for duplicate IDs (default: True)
             
         Returns:
-            Self for method chaining
+            The node that was added (or the existing node if merged)
             
         Raises:
-            ValueError: If a node with the same ID already exists
+            ValueError: If a node with the same ID already exists and merge_properties is False,
+                       or if merging fails due to incompatible node data
         """
         if node.id in self._node_ids:
-            raise ValueError(f"Node with ID '{node.id}' already exists")
+            if not merge_properties:
+                raise ValueError(f"Node with ID '{node.id}' already exists")
+            
+            # Find the existing node and merge properties
+            existing_node = next(n for n in self.nodes if n.id == node.id)
+            self._merge_node_properties(existing_node, node)
+            return existing_node
         
         # Set the source_kind_available flag based on whether we have metadata with source_kind
-        # This will automatically re-validate the node
         node.source_kind_available = self.metadata is not None and self.metadata.source_kind is not None
         
         self.nodes.append(node)
         self._node_ids.add(node.id)
-        return self
+        return node
     
     def add_edge(self, edge: Edge) -> 'OpenGraphBuilder':
         """
@@ -234,7 +241,8 @@ class OpenGraphBuilder:
         return self
     
     def create_node(self, id: str, kinds: List[str], 
-                   properties: Optional[Dict[str, Any]] = None) -> Node:
+                   properties: Optional[Dict[str, Any]] = None, 
+                   merge_properties: bool = True) -> Node:
         """
         Create and add a node to the graph.
         
@@ -242,13 +250,22 @@ class OpenGraphBuilder:
             id: Unique identifier for the node
             kinds: Array of kind labels
             properties: Optional properties dictionary
+            merge_properties: If True, merge properties with existing node if ID exists.
+                            If False, raise ValueError for duplicate IDs (default: True)
             
         Returns:
-            The created node
+            The created node (or existing node if merged)
         """
-        # Check if this node ID already exists
         if id in self._node_ids:
-            raise ValueError(f"Node with ID '{id}' already exists")
+            if not merge_properties:
+                raise ValueError(f"Node with ID '{id}' already exists")
+            
+            # Find the existing node and merge with new data
+            existing_node = next(n for n in self.nodes if n.id == id)
+            new_node = Node(id=id, kinds=kinds, properties=properties, 
+                          source_kind_available=self.metadata is not None and self.metadata.source_kind is not None)
+            self._merge_node_properties(existing_node, new_node)
+            return existing_node
         
         # Check if we have source_kind available
         has_source_kind = self.metadata is not None and self.metadata.source_kind is not None
@@ -261,7 +278,44 @@ class OpenGraphBuilder:
         self._node_ids.add(node.id)
         
         return node
-    
+
+    def _merge_node_properties(self, existing_node: Node, new_node: Node):
+        """
+        Merge properties from new_node into existing_node.
+        
+        Args:
+            existing_node: The node that already exists in the graph
+            new_node: The new node whose data should be merged
+            
+        Raises:
+            ValueError: If nodes have incompatible kinds or other conflicts
+        """
+        # Merge kinds - add any new kinds that aren't already present
+        for kind in new_node.kinds:
+            if kind not in existing_node.kinds:
+                existing_node.kinds.append(kind)
+        
+        # Validate that merged kinds still respect the 3-kind limit
+        if len(existing_node.kinds) > 3:
+            raise ValueError(
+                f"Merging node '{existing_node.id}' would result in more than 3 kinds: {existing_node.kinds}. "
+                f"Cannot merge kinds {new_node.kinds} with existing kinds {existing_node.kinds[:len(existing_node.kinds) - len(new_node.kinds)]}"
+            )
+        
+        # Merge properties if both nodes have them
+        if new_node.properties:
+            if existing_node.properties is None:
+                existing_node.properties = new_node.properties.copy()
+            else:
+                # Deep merge properties - new properties override existing ones
+                for key, value in new_node.properties.items():
+                    existing_node.properties[key] = value
+        
+        # Re-validate the merged node
+        existing_node._validate_kinds()
+        if existing_node.properties:
+            existing_node._validate_properties()
+
     def create_edge(self, start_value: str, end_value: str, kind: str,
                    start_match_by: MatchBy = MatchBy.ID,
                    end_match_by: MatchBy = MatchBy.ID,
