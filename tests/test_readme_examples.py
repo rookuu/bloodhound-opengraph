@@ -3,16 +3,18 @@
 Test script to validate README examples work correctly.
 This ensures documentation stays in sync with the actual code.
 """
+import tempfile
+import os
+import json
 
 def test_readme_basic_example():
-    """Test the basic example from README."""
+    """Test the basic example from README works end-to-end."""
     from opengraph import OpenGraphBuilder
 
-    # Create a builder
+    # Create a builder and add the README example content
     builder = OpenGraphBuilder(source_kind="MySystem")
 
-    # Add nodes
-    user = builder.create_node(
+    builder.create_node(
         id="alice@company.com",
         kinds=["User", "Person"],
         properties={
@@ -22,7 +24,7 @@ def test_readme_basic_example():
         }
     )
 
-    server = builder.create_node(
+    builder.create_node(
         id="web-server-01",
         kinds=["Computer", "Server"],
         properties={
@@ -31,7 +33,6 @@ def test_readme_basic_example():
         }
     )
 
-    # Add relationships
     builder.create_edge(
         start_value="alice@company.com",
         end_value="web-server-01",
@@ -39,25 +40,17 @@ def test_readme_basic_example():
         properties={"granted_date": "2025-01-15"}
     )
 
-    # Export as JSON
+    # Test JSON export and file save functionality
     json_output = builder.to_json()
     
-    # Basic validations
+    # Verify basic structure and content
     assert "graph" in json_output
-    assert "nodes" in json_output  
-    assert "edges" in json_output
     assert "alice@company.com" in json_output
     assert "web-server-01" in json_output
     assert "has_admin_access" in json_output
     assert "MySystem" in json_output
     
-    print("✅ README basic example works correctly")
-
     # Test save to file functionality
-    import tempfile
-    import os
-    import json
-    
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
         temp_file = f.name
     
@@ -71,8 +64,6 @@ def test_readme_basic_example():
         assert "graph" in data
         assert len(data["graph"]["nodes"]) == 2
         assert len(data["graph"]["edges"]) == 1
-        
-        print("✅ README save_to_file example works correctly")
         
     finally:
         if os.path.exists(temp_file):

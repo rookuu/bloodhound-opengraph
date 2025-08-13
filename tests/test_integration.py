@@ -256,103 +256,53 @@ class TestOpenGraphIntegration:
         assert len(data["graph"]["nodes"]) == 150
         assert len(data["graph"]["edges"]) == edge_count
 
-    def test_file_save_and_reload_workflow(self):
-        """Test saving to file and verifying the output."""
+    def test_file_integration_workflow(self):
+        """Test saving to file and verifying the output (integration with filesystem)."""
         builder = OpenGraphBuilder(source_kind="FileSaveTest")
         
         # Create sample data
-        builder.create_node(
-            id="test_user",
-            kinds=["User"],
-            properties={"email": "test@example.com"}
-        )
+        builder.create_node(id="test_user", kinds=["User"], properties={"email": "test@example.com"})
+        builder.create_node(id="test_computer", kinds=["Computer"], properties={"hostname": "test.local"})
+        builder.create_edge("test_user", "test_computer", "AdminTo")
         
-        builder.create_node(
-            id="test_computer",
-            kinds=["Computer"],
-            properties={"hostname": "test.local"}
-        )
-        
-        builder.create_edge(
-            start_value="test_user",
-            end_value="test_computer",
-            kind="AdminTo"
-        )
-        
-        # Save to temporary file
+        # Save to temporary file and verify integration
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
             temp_file = f.name
         
         try:
             builder.save_to_file(temp_file)
-            
-            # Verify file exists and has correct content
             assert os.path.exists(temp_file)
             
             with open(temp_file, 'r') as f:
                 data = json.load(f)
             
-            assert "metadata" in data
-            assert "graph" in data
+            # Integration test: verify complete workflow worked end-to-end
             assert data["metadata"]["source_kind"] == "FileSaveTest"
             assert len(data["graph"]["nodes"]) == 2
             assert len(data["graph"]["edges"]) == 1
             
-            # Verify specific content
             user_node = next(n for n in data["graph"]["nodes"] if n["id"] == "test_user")
             assert user_node["kinds"] == ["User"]
             assert user_node["properties"]["email"] == "test@example.com"
             
         finally:
-            # Clean up
             if os.path.exists(temp_file):
                 os.unlink(temp_file)
 
-    def test_error_handling_workflow(self):
-        """Test error handling in complete workflow."""
-        builder = OpenGraphBuilder()
-        
-        # Add a node
-        builder.create_node(id="user1", kinds=["User"])
-        
-        # Try to add duplicate - should fail
-        with pytest.raises(ValueError, match="already exists"):
-            builder.create_node(id="user1", kinds=["Different"])
-        
-        # Add edge referencing non-existent node - should fail validation
-        builder.create_edge(
-            start_value="user1",
-            end_value="nonexistent",
-            kind="ConnectedTo"
-        )
-        
-        with pytest.raises(ValueError, match="does not exist"):
-            builder.validate()
-
     @pytest.mark.slow
     def test_stress_test_many_validations(self):
-        """Stress test with many validation calls."""
+        """Stress test with many validation calls (integration performance test)."""
         builder = OpenGraphBuilder(source_kind="StressTest")
         
         # Add nodes incrementally and validate each time
         for i in range(50):
-            builder.create_node(
-                id=f"node{i}",
-                kinds=["TestNode"],
-                properties={"index": i}
-            )
-            
+            builder.create_node(id=f"node{i}", kinds=["TestNode"], properties={"index": i})
             # Validate after each addition
             assert builder.validate() is True
         
         # Add edges and validate
         for i in range(25):
-            builder.create_edge(
-                start_value=f"node{i}",
-                end_value=f"node{i+25}",
-                kind="ConnectedTo"
-            )
-            
+            builder.create_edge(f"node{i}", f"node{i+25}", "ConnectedTo")
             # Validate after each edge addition
             assert builder.validate() is True
         

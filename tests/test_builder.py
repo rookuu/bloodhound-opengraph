@@ -10,41 +10,60 @@ from opengraph import OpenGraphBuilder, Node, Edge, NodeReference, MatchBy
 class TestOpenGraphBuilder:
     """Test cases for the OpenGraphBuilder class."""
 
-    def test_builder_initialization_default(self):
-        """Test creating a builder with default settings."""
-        builder = OpenGraphBuilder()
+    def test_builder_initialization_comprehensive(self):
+        """Test creating builders with different initialization options."""
+        # Test default initialization
+        builder_default = OpenGraphBuilder()
+        assert len(builder_default.nodes) == 0
+        assert len(builder_default.edges) == 0
+        assert builder_default.metadata is None
         
-        assert len(builder.nodes) == 0
-        assert len(builder.edges) == 0
-        assert builder.metadata is None
-
-    def test_builder_initialization_with_source_kind(self):
-        """Test creating a builder with source kind."""
-        builder = OpenGraphBuilder(source_kind="TestSystem")
+        # Test to_dict of empty builder
+        result_empty = builder_default.to_dict()
+        expected_empty = {"graph": {"nodes": [], "edges": []}}
+        assert result_empty == expected_empty
         
-        assert len(builder.nodes) == 0
-        assert len(builder.edges) == 0
-        assert builder.metadata is not None
-        assert builder.metadata.source_kind == "TestSystem"
+        # Test initialization with source kind
+        builder_with_source = OpenGraphBuilder(source_kind="TestSystem")
+        assert len(builder_with_source.nodes) == 0
+        assert len(builder_with_source.edges) == 0
+        assert builder_with_source.metadata is not None
+        assert builder_with_source.metadata.source_kind == "TestSystem"
+        
+        # Test to_dict with source kind
+        result_with_source = builder_with_source.to_dict()
+        expected_with_source = {
+            "metadata": {"source_kind": "TestSystem"},
+            "graph": {"nodes": [], "edges": []}
+        }
+        assert result_with_source == expected_with_source
 
     def test_add_node_success(self, sample_user_node):
         """Test adding a node successfully."""
         builder = OpenGraphBuilder()
         result = builder.add_node(sample_user_node)
         
-        assert result is builder  # Should return self for chaining
+        assert result is sample_user_node  # Should return the node
         assert len(builder.nodes) == 1
         assert builder.nodes[0] == sample_user_node
         assert sample_user_node.id in builder._node_ids
 
-    def test_add_node_duplicate_id_raises_error(self, sample_user_node):
-        """Test that adding a node with duplicate ID raises ValueError."""
+    def test_add_node_duplicate_handling(self, sample_user_node):
+        """Test adding nodes with duplicate IDs - both merge and error scenarios."""
         builder = OpenGraphBuilder()
         builder.add_node(sample_user_node)
         
+        # Test merge_properties=False raises error
         duplicate_node = Node(id=sample_user_node.id, kinds=["Different"])
         with pytest.raises(ValueError, match="already exists"):
-            builder.add_node(duplicate_node)
+            builder.add_node(duplicate_node, merge_properties=False)
+        
+        # Test that merging is default behavior (more comprehensive tests in test_node_merging.py)
+        duplicate_node_merge = Node(id=sample_user_node.id, kinds=["Different"], properties={"new_prop": "value"})
+        result = builder.add_node(duplicate_node_merge)  # Should merge by default
+        assert result is sample_user_node  # Should return the existing (merged) node
+        assert len(builder.nodes) == 1  # Should still have only one node
+        assert "Different" in sample_user_node.kinds  # Should have merged kinds
 
     def test_add_edge_success(self, sample_edge):
         """Test adding an edge successfully."""
@@ -112,6 +131,31 @@ class TestOpenGraphBuilder:
         assert edge.end.match_by == MatchBy.NAME
         assert edge.end.kind == "Computer"
 
+    def test_to_json_and_dict_comprehensive(self, populated_builder):
+        """Test converting to JSON and dictionary with various formatting options."""
+        # Test to_dict
+        result_dict = populated_builder.to_dict()
+        assert "metadata" in result_dict
+        assert "graph" in result_dict
+        assert "nodes" in result_dict["graph"]
+        assert "edges" in result_dict["graph"]
+        assert len(result_dict["graph"]["nodes"]) == 2
+        assert len(result_dict["graph"]["edges"]) == 1
+        assert result_dict["metadata"]["source_kind"] == "TestSystem"
+        
+        # Test to_json compact
+        json_compact = populated_builder.to_json(indent=None)
+        data_compact = json.loads(json_compact)
+        assert "graph" in data_compact
+        assert "metadata" in data_compact
+        assert "\n" not in json_compact  # Should be compact
+        
+        # Test to_json indented
+        json_indented = populated_builder.to_json(indent=2)
+        data_indented = json.loads(json_indented)
+        assert "graph" in data_indented
+        assert "\n" in json_indented  # Should be formatted
+
     def test_to_dict_empty_builder(self):
         """Test converting empty builder to dictionary."""
         builder = OpenGraphBuilder()
@@ -141,41 +185,6 @@ class TestOpenGraphBuilder:
         }
         assert result == expected
 
-    def test_to_dict_with_data(self, populated_builder):
-        """Test converting populated builder to dictionary."""
-        result = populated_builder.to_dict()
-        
-        assert "metadata" in result
-        assert "graph" in result
-        assert "nodes" in result["graph"]
-        assert "edges" in result["graph"]
-        assert len(result["graph"]["nodes"]) == 2
-        assert len(result["graph"]["edges"]) == 1
-        assert result["metadata"]["source_kind"] == "TestSystem"
-
-    def test_to_json_compact(self, populated_builder):
-        """Test converting to JSON without indentation."""
-        json_str = populated_builder.to_json(indent=None)
-        
-        # Should be valid JSON
-        data = json.loads(json_str)
-        assert "graph" in data
-        assert "metadata" in data
-        
-        # Should be compact (no newlines)
-        assert "\n" not in json_str
-
-    def test_to_json_indented(self, populated_builder):
-        """Test converting to JSON with indentation."""
-        json_str = populated_builder.to_json(indent=2)
-        
-        # Should be valid JSON
-        data = json.loads(json_str)
-        assert "graph" in data
-        
-        # Should be formatted (has newlines)
-        assert "\n" in json_str
-
     def test_save_to_file(self, populated_builder, temp_json_file):
         """Test saving builder data to JSON file."""
         populated_builder.save_to_file(temp_json_file)
@@ -191,9 +200,13 @@ class TestOpenGraphBuilder:
         assert len(data["graph"]["nodes"]) == 2
         assert len(data["graph"]["edges"]) == 1
 
-    def test_clear(self, populated_builder):
-        """Test clearing all data from builder."""
-        # Verify builder has data
+    def test_builder_state_management(self, populated_builder):
+        """Test clearing, counting, and basic state management of builder."""
+        # Test get_counts
+        assert populated_builder.get_node_count() == 2
+        assert populated_builder.get_edge_count() == 1
+        
+        # Test clear (verify builder has data first)
         assert len(populated_builder.nodes) > 0
         assert len(populated_builder.edges) > 0
         assert len(populated_builder._node_ids) > 0
@@ -203,11 +216,6 @@ class TestOpenGraphBuilder:
         assert len(populated_builder.nodes) == 0
         assert len(populated_builder.edges) == 0
         assert len(populated_builder._node_ids) == 0
-
-    def test_get_counts(self, populated_builder):
-        """Test getting node and edge counts."""
-        assert populated_builder.get_node_count() == 2
-        assert populated_builder.get_edge_count() == 1
 
     def test_validate_success(self, populated_builder):
         """Test successful validation of populated builder."""
@@ -281,14 +289,3 @@ class TestOpenGraphBuilder:
         
         with pytest.raises(ValueError, match="does not exist"):
             builder.validate()
-
-    def test_method_chaining(self):
-        """Test that methods support chaining."""
-        builder = OpenGraphBuilder()
-        
-        result = (builder
-                 .add_node(Node(id="test1", kinds=["User"]))
-                 .add_node(Node(id="test2", kinds=["Computer"])))
-        
-        assert result is builder
-        assert len(builder.nodes) == 2
