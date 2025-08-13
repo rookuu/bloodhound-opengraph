@@ -39,7 +39,7 @@ class TestNode:
 
     def test_node_validation_empty_kinds(self):
         """Test that nodes with empty kinds raise ValueError."""
-        with pytest.raises(ValueError, match="Node must have at least one kind"):
+        with pytest.raises(ValueError, match="Node must have at least one kind when no source_kind is specified"):
             Node(id="test123", kinds=[])
 
     def test_node_validation_too_many_kinds(self):

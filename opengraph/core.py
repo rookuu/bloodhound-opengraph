@@ -46,23 +46,63 @@ class Node:
     
     Args:
         id: Unique identifier for the node
-        kinds: Array of kind labels (1-3 items, first is primary kind)
+        kinds: Array of kind labels (0-3 items when source_kind is available, 1-3 items otherwise)
         properties: Optional key-value map of node attributes
     """
     id: str
     kinds: List[str]
     properties: Optional[Dict[str, Union[str, int, float, bool, List]]] = None
+    _source_kind_available: bool = field(default=False, init=False, repr=False, compare=False)
+    
+    @classmethod
+    def create(cls, id: str, kinds: List[str], properties: Optional[Dict[str, Union[str, int, float, bool, List]]] = None, source_kind_available: bool = False) -> 'Node':
+        """
+        Create a node with proper context validation.
+        
+        Args:
+            id: Unique identifier for the node
+            kinds: Array of kind labels
+            properties: Optional key-value map of node attributes
+            source_kind_available: Whether a source_kind is available in the graph context
+            
+        Returns:
+            The created and validated node
+        """
+        node = cls.__new__(cls)
+        node.id = id
+        node.kinds = kinds
+        node.properties = properties
+        node._source_kind_available = source_kind_available
+        node.__post_init__()
+        return node
     
     def __post_init__(self):
         """Validate node data after initialization."""
-        if not self.kinds:
-            raise ValueError("Node must have at least one kind")
+        self._validate_kinds()
         if len(self.kinds) > 3:
             raise ValueError("Node cannot have more than 3 kinds")
         
         # Validate properties if present
         if self.properties:
             self._validate_properties()
+    
+    def _validate_kinds(self):
+        """Validate that kinds are appropriate for the context."""
+        if not self.kinds:
+            if not self._source_kind_available:
+                raise ValueError("Node must have at least one kind when no source_kind is specified")
+        # If kinds are present, no additional validation needed (max 3 is checked in __post_init__)
+    
+    @property
+    def source_kind_available(self) -> bool:
+        """Get the source_kind_available flag."""
+        return self._source_kind_available
+    
+    @source_kind_available.setter
+    def source_kind_available(self, value: bool):
+        """Set the source_kind_available flag and re-validate."""
+        self._source_kind_available = value
+        self._validate_kinds()
     
     def _validate_properties(self):
         """Validate that properties conform to schema requirements."""
@@ -204,6 +244,10 @@ class OpenGraphBuilder:
         if node.id in self._node_ids:
             raise ValueError(f"Node with ID '{node.id}' already exists")
         
+        # Set the source_kind_available flag based on whether we have metadata with source_kind
+        # This will automatically re-validate the node
+        node.source_kind_available = self.metadata is not None and self.metadata.source_kind is not None
+        
         self.nodes.append(node)
         self._node_ids.add(node.id)
         return self
@@ -234,8 +278,20 @@ class OpenGraphBuilder:
         Returns:
             The created node
         """
-        node = Node(id=id, kinds=kinds, properties=properties)
-        self.add_node(node)
+        # Check if this node ID already exists
+        if id in self._node_ids:
+            raise ValueError(f"Node with ID '{id}' already exists")
+        
+        # Check if we have source_kind available
+        has_source_kind = self.metadata is not None and self.metadata.source_kind is not None
+        
+        # Create node with proper context
+        node = Node.create(id=id, kinds=kinds, properties=properties, source_kind_available=has_source_kind)
+        
+        # Add to our tracking
+        self.nodes.append(node)
+        self._node_ids.add(node.id)
+        
         return node
     
     def create_edge(self, start_value: str, end_value: str, kind: str,
