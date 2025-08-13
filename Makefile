@@ -8,7 +8,6 @@ install:
 
 install-dev:
 	pip install -e ".[dev]"
-	pip install -r tests/requirements.txt
 
 # Testing targets
 test:

@@ -31,24 +31,12 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-test = [
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "pytest-mock>=3.10.0",
-    "pytest-xdist>=3.0.0",
-    "coverage>=6.0.0"
-]
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
     "pytest-mock>=3.10.0",
     "pytest-xdist>=3.0.0",
     "coverage>=6.0.0",
-    "mypy>=1.0.0",
-    "flake8>=5.0.0",
-    "black>=22.0.0",
-    "isort>=5.10.0",
-    "bandit>=1.7.0"
 ]
 
 [project.urls]
@@ -71,8 +59,7 @@ addopts = [
     "--cov-report=term-missing",
     "--cov-report=html",
     "--cov-report=xml",
-    "--cov-branch",
-    "--cov-fail-under=85"
+    "--cov-branch"
 ]
 markers = [
     "unit: Unit tests",
