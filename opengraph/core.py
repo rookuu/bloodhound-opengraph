@@ -52,35 +52,11 @@ class Node:
     id: str
     kinds: List[str]
     properties: Optional[Dict[str, Union[str, int, float, bool, List]]] = None
-    _source_kind_available: bool = field(default=False, init=False, repr=False, compare=False)
-    
-    @classmethod
-    def create(cls, id: str, kinds: List[str], properties: Optional[Dict[str, Union[str, int, float, bool, List]]] = None, source_kind_available: bool = False) -> 'Node':
-        """
-        Create a node with proper context validation.
-        
-        Args:
-            id: Unique identifier for the node
-            kinds: Array of kind labels
-            properties: Optional key-value map of node attributes
-            source_kind_available: Whether a source_kind is available in the graph context
-            
-        Returns:
-            The created and validated node
-        """
-        node = cls.__new__(cls)
-        node.id = id
-        node.kinds = kinds
-        node.properties = properties
-        node._source_kind_available = source_kind_available
-        node.__post_init__()
-        return node
+    source_kind_available: bool = False
     
     def __post_init__(self):
         """Validate node data after initialization."""
         self._validate_kinds()
-        if len(self.kinds) > 3:
-            raise ValueError("Node cannot have more than 3 kinds")
         
         # Validate properties if present
         if self.properties:
@@ -88,21 +64,13 @@ class Node:
     
     def _validate_kinds(self):
         """Validate that kinds are appropriate for the context."""
-        if not self.kinds:
-            if not self._source_kind_available:
-                raise ValueError("Node must have at least one kind when no source_kind is specified")
-        # If kinds are present, no additional validation needed (max 3 is checked in __post_init__)
+        print("Validating kinds for node:", self.id, "with source_kind_available =", self.source_kind_available)
+        if not self.kinds and not self.source_kind_available:
+            raise ValueError("Node must have at least one kind when no source_kind is specified")
     
-    @property
-    def source_kind_available(self) -> bool:
-        """Get the source_kind_available flag."""
-        return self._source_kind_available
-    
-    @source_kind_available.setter
-    def source_kind_available(self, value: bool):
-        """Set the source_kind_available flag and re-validate."""
-        self._source_kind_available = value
-        self._validate_kinds()
+        if len(self.kinds) > 3:
+            raise ValueError("Node cannot have more than 3 kinds")
+        
     
     def _validate_properties(self):
         """Validate that properties conform to schema requirements."""
@@ -286,7 +254,7 @@ class OpenGraphBuilder:
         has_source_kind = self.metadata is not None and self.metadata.source_kind is not None
         
         # Create node with proper context
-        node = Node.create(id=id, kinds=kinds, properties=properties, source_kind_available=has_source_kind)
+        node = Node(id=id, kinds=kinds, properties=properties, source_kind_available=has_source_kind)
         
         # Add to our tracking
         self.nodes.append(node)
