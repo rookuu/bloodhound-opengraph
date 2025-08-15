@@ -71,7 +71,7 @@ The main class for building OpenGraph structures:
 ### Node
 Represents a graph node:
 - `id`: Unique identifier (required)
-- `kinds`: List of 1-3 kind labels (required)
+- `kinds`: List of 0-3 kind labels (required, 0 only acceptable if source kind is set)
 - `properties`: Optional dictionary of attributes
 
 ### Edge  
