@@ -20,7 +20,7 @@ from .core import (
     MatchBy
 )
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __author__ = "Luke Roberts"
 __email__ = "rookuu@github.com"
 __license__ = "MIT"
