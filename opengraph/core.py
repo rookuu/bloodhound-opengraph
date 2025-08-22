@@ -57,9 +57,9 @@ class Node:
     def __post_init__(self):
         """Validate node data after initialization."""
         self._validate_kinds()
-        
-        # Validate properties if present
+        # Strip properties with null values
         if self.properties:
+            self.properties = {k: v for k, v in self.properties.items() if v is not None}
             self._validate_properties()
     
     def _validate_kinds(self):
@@ -97,7 +97,10 @@ class Node:
             "kinds": self.kinds
         }
         if self.properties is not None:
-            result["properties"] = self.properties
+            # Strip properties with null values on serialization
+            props = {k: v for k, v in self.properties.items() if v is not None}
+            if props:
+                result["properties"] = props
         return result
 
 
@@ -121,9 +124,9 @@ class Edge:
         """Validate edge data after initialization."""
         if not self.kind:
             raise ValueError("Edge must have a kind")
-        
-        # Validate properties if present
+        # Strip properties with null values
         if self.properties:
+            self.properties = {k: v for k, v in self.properties.items() if v is not None}
             self._validate_properties()
     
     def _validate_properties(self):
@@ -153,7 +156,10 @@ class Edge:
             "kind": self.kind
         }
         if self.properties is not None:
-            result["properties"] = self.properties
+            # Strip properties with null values on serialization
+            props = {k: v for k, v in self.properties.items() if v is not None}
+            if props:
+                result["properties"] = props
         return result
 
 

@@ -50,7 +50,6 @@ class TestNode:
             "int_prop": 42,
             "float_prop": 3.14,
             "bool_prop": True,
-            "none_prop": None,
             "string_array": ["item1", "item2", "item3"],
             "int_array": [1, 2, 3],
             "bool_array": [True, False, True],
@@ -70,6 +69,19 @@ class TestNode:
         # Test rejection of object arrays
         with pytest.raises(ValueError, match="array cannot contain objects"):
             Node(id="test123", kinds=["User"], properties={"objects": [{"key": "value"}]})
+
+    def test_node_property_validation_none_prop(self):
+        """Test that properties with None values are stripped."""
+        properties_with_none = {
+            "valid_prop": "test",
+            "none_prop": None,
+            "another_valid": 42
+        }
+        node = Node(id="test123", kinds=["User"], properties=properties_with_none)
+        assert node.properties == {
+            "valid_prop": "test",
+            "another_valid": 42
+        }
 
     def test_node_to_dict_comprehensive(self):
         """Test converting nodes to dictionary in various scenarios."""
