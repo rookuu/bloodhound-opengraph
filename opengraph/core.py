@@ -28,6 +28,13 @@ class NodeReference:
     match_by: MatchBy = MatchBy.ID
     kind: Optional[str] = None
     
+    def _validate_value(self):
+        if not self.value or not self.value.strip():
+            raise ValueError("The 'value' field cannot be None or empty.")
+    def __post_init__(self):
+        """Validate node data after initialization."""
+        self._validate_value()
+        
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         result = {
